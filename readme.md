@@ -1,6 +1,6 @@
 # Brightsy MCP Server
 
-This is a Model Context Protocol (MCP) server that connects to an OpenAI-compatible AI agent.
+This is a Model Context Protocol (MCP) server that connects to an Brightsy AI agent.
 
 ## Installation
 
