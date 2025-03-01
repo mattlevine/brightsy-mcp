@@ -76,6 +76,8 @@ if (!agent_id || !api_key) {
   console.error('   BRIGHTSY_AGENT_ID: Agent ID (alternative to command line argument)');
   console.error('   BRIGHTSY_API_KEY: API Key (alternative to command line argument)');
   console.error('   BRIGHTSY_TOOL_NAME: Tool name (default: brightsy)');
+  console.error('   BRIGHTSY_AGENT_API_URL: Base URL for agent API (default: http://localhost:3000)');
+  console.error('   BRIGHTSY_MAINTAIN_HISTORY: Whether to maintain conversation history (default: true)');
   process.exit(1);
 }
 
@@ -84,6 +86,22 @@ const server = new McpServer({
   name: "brightsy-mcp",
   version: "1.0.0",
 });
+
+// Add conversation history state to maintain session state
+// This will store messages across multiple tool invocations
+interface Message {
+  role: string;
+  content: string | any[];
+}
+
+// Initialize conversation history
+let conversationHistory: Message[] = [];
+
+// Flag to control whether to maintain conversation history
+const maintainHistory = process.env.BRIGHTSY_MAINTAIN_HISTORY !== 'false';
+
+// Get the agent API base URL from environment variable or use default
+const agentApiBaseUrl = process.env.BRIGHTSY_AGENT_API_URL || 'http://localhost:3000';
 
 // Helper function to process content from the agent response
 function processContent(content: any): { type: "text"; text: string }[] {
@@ -137,13 +155,44 @@ server.tool(
       console.error(`Agent proxy tool called with messages:`);
       console.error(JSON.stringify(messages, null, 2));
       
-      const agentUrl = `http://localhost:3000/api/v1beta/agent/${agent_id}/chat/completion`;
+      // Check for special command to clear history
+      if (messages.length === 1 && 
+          messages[0].role === 'user' && 
+          typeof messages[0].content === 'string' && 
+          messages[0].content.trim().toLowerCase() === 'clear history') {
+        conversationHistory = [];
+        console.error('Conversation history cleared');
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Conversation history has been cleared.",
+            },
+          ],
+        };
+      }
+      
+      // Determine which messages to send to the agent
+      let messagesToSend: Message[];
+      
+      if (maintainHistory) {
+        // Add new messages to conversation history
+        conversationHistory = [...conversationHistory, ...messages];
+        messagesToSend = conversationHistory;
+        console.error(`Using conversation history with ${messagesToSend.length} messages`);
+      } else {
+        // Just use the messages from this invocation
+        messagesToSend = messages;
+        console.error(`History maintenance disabled, using only current ${messagesToSend.length} messages`);
+      }
+      
+      const agentUrl = `${agentApiBaseUrl}/api/v1beta/agent/${agent_id}/chat/completion`;
       
       console.error(`Forwarding request to agent: ${agent_id}`);
       console.error(`Agent URL: ${agentUrl}`);
       
       const requestBody = {
-        messages,
+        messages: messagesToSend,
         stream: false
       };
       
@@ -216,6 +265,15 @@ server.tool(
       
       console.error(`Assistant message: ${JSON.stringify(assistantMessage, null, 2)}`);
       
+      // Add the assistant's response to the conversation history if maintaining history
+      if (maintainHistory && assistantMessage) {
+        conversationHistory.push({
+          role: assistantMessage.role || 'assistant',
+          content: assistantMessage.content
+        });
+        console.error(`Added assistant response to history. History now has ${conversationHistory.length} messages`);
+      }
+      
       // Handle the case where content is already an array of content blocks
       if (Array.isArray(assistantMessage.content)) {
         console.error(`Content is an array, processing directly`);
@@ -276,13 +334,18 @@ async function processInitialMessage() {
         { role: "user", content: initialMessage }
       ];
       
+      // Add to conversation history if maintaining history
+      if (maintainHistory) {
+        conversationHistory.push(...messages);
+      }
+      
       // Instead of trying to access the tool directly, make a request to the local API
-      const agentUrl = `http://localhost:3000/api/v1beta/agent/${agent_id}/chat/completion`;
+      const agentUrl = `${agentApiBaseUrl}/api/v1beta/agent/${agent_id}/chat/completion`;
       
       console.error(`Forwarding initial message to agent: ${agent_id}`);
       
       const requestBody = {
-        messages,
+        messages: maintainHistory ? conversationHistory : messages,
         stream: false
       };
       
@@ -311,6 +374,14 @@ async function processInitialMessage() {
       if (!assistantMessage) {
         console.log("No message in agent response");
         return;
+      }
+      
+      // Add the assistant's response to the conversation history if maintaining history
+      if (maintainHistory && assistantMessage) {
+        conversationHistory.push({
+          role: assistantMessage.role || 'assistant',
+          content: assistantMessage.content
+        });
       }
       
       // Handle the case where content is already an array of content blocks
@@ -368,6 +439,8 @@ async function main() {
     console.error(`Brightsy MCP Server running on stdio`);
     console.error(`Connected to agent: ${agent_id}`);
     console.error(`Registered tool name: ${tool_name}`);
+    console.error(`Agent API URL: ${agentApiBaseUrl}`);
+    console.error(`Session state: ${maintainHistory ? 'enabled' : 'disabled'}`);
     console.error(`Ready to receive requests`);
     
     // Process initial message if provided
