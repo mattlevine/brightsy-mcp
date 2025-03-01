@@ -59,7 +59,7 @@ The following environment variables can be used to configure the server:
 
 ## Testing the agent_proxy Tool
 
-The agent_proxy tool allows you to proxy requests to an OpenAI-compatible AI agent. To test this tool, you can use the provided test scripts.
+The agent_proxy tool allows you to proxy requests to an Brightsy AI agent. To test this tool, you can use the provided test scripts.
 
 ### Prerequisites
 
