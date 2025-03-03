@@ -76,7 +76,7 @@ if (!agent_id || !api_key) {
   console.error('   BRIGHTSY_AGENT_ID: Agent ID (alternative to command line argument)');
   console.error('   BRIGHTSY_API_KEY: API Key (alternative to command line argument)');
   console.error('   BRIGHTSY_TOOL_NAME: Tool name (default: brightsy)');
-  console.error('   BRIGHTSY_AGENT_API_URL: Base URL for agent API (default: http://localhost:3000)');
+  console.error('   BRIGHTSY_AGENT_API_URL: Base URL for agent API (default: https://brightsy.ai)');
   console.error('   BRIGHTSY_MAINTAIN_HISTORY: Whether to maintain conversation history (default: true)');
   process.exit(1);
 }
@@ -98,10 +98,10 @@ interface Message {
 let conversationHistory: Message[] = [];
 
 // Flag to control whether to maintain conversation history
-const maintainHistory = process.env.BRIGHTSY_MAINTAIN_HISTORY !== 'false';
+const useChat = process.env.BRIGHTSY_MAINTAIN_HISTORY !== 'false';
 
 // Get the agent API base URL from environment variable or use default
-const agentApiBaseUrl = process.env.BRIGHTSY_AGENT_API_URL || 'http://localhost:3000';
+const agentApiBaseUrl = process.env.BRIGHTSY_AGENT_API_URL || 'https://brightsy.ai';
 
 // Helper function to process content from the agent response
 function processContent(content: any): { type: "text"; text: string }[] {
@@ -175,7 +175,7 @@ server.tool(
       // Determine which messages to send to the agent
       let messagesToSend: Message[];
       
-      if (maintainHistory) {
+      if (useChat) {
         // Add new messages to conversation history
         conversationHistory = [...conversationHistory, ...messages];
         messagesToSend = conversationHistory;
@@ -266,7 +266,7 @@ server.tool(
       console.error(`Assistant message: ${JSON.stringify(assistantMessage, null, 2)}`);
       
       // Add the assistant's response to the conversation history if maintaining history
-      if (maintainHistory && assistantMessage) {
+      if (useChat && assistantMessage) {
         conversationHistory.push({
           role: assistantMessage.role || 'assistant',
           content: assistantMessage.content
@@ -335,7 +335,7 @@ async function processInitialMessage() {
       ];
       
       // Add to conversation history if maintaining history
-      if (maintainHistory) {
+      if (useChat) {
         conversationHistory.push(...messages);
       }
       
@@ -345,7 +345,7 @@ async function processInitialMessage() {
       console.error(`Forwarding initial message to agent: ${agent_id}`);
       
       const requestBody = {
-        messages: maintainHistory ? conversationHistory : messages,
+        messages: useChat ? conversationHistory : messages,
         stream: false
       };
       
@@ -377,11 +377,12 @@ async function processInitialMessage() {
       }
       
       // Add the assistant's response to the conversation history if maintaining history
-      if (maintainHistory && assistantMessage) {
+      if (useChat && assistantMessage) {
         conversationHistory.push({
           role: assistantMessage.role || 'assistant',
           content: assistantMessage.content
         });
+        console.error(`Added assistant response to history. History now has ${conversationHistory.length} messages`);
       }
       
       // Handle the case where content is already an array of content blocks
@@ -440,7 +441,7 @@ async function main() {
     console.error(`Connected to agent: ${agent_id}`);
     console.error(`Registered tool name: ${tool_name}`);
     console.error(`Agent API URL: ${agentApiBaseUrl}`);
-    console.error(`Session state: ${maintainHistory ? 'enabled' : 'disabled'}`);
+    console.error(`Session state: ${useChat ? 'enabled' : 'disabled'}`);
     console.error(`Ready to receive requests`);
     
     // Process initial message if provided
