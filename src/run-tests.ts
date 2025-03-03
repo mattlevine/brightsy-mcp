@@ -6,6 +6,21 @@ import { execSync } from "child_process";
 import { existsSync } from "fs";
 import { join } from "path";
 
+// Configuration from environment variables
+const AGENT_ID = process.env.AGENT_ID || process.env.BRIGHTSY_AGENT_ID || '';
+const API_KEY = process.env.API_KEY || process.env.BRIGHTSY_API_KEY || '';
+const TOOL_NAME = process.env.TOOL_NAME || process.env.BRIGHTSY_TOOL_NAME || "brightsy";
+
+// Validate required environment variables
+if (!AGENT_ID || !API_KEY) {
+  console.error('Error: Required environment variables not set');
+  console.error('Please set the following environment variables:');
+  console.error('  AGENT_ID or BRIGHTSY_AGENT_ID: The agent ID to use for testing');
+  console.error('  API_KEY or BRIGHTSY_API_KEY: The API key to use for testing');
+  console.error('  TOOL_NAME or BRIGHTSY_TOOL_NAME: (optional) The tool name to use (default: brightsy)');
+  process.exit(1);
+}
+
 // Ensure we're in the right directory
 const packageJsonPath = join(process.cwd(), "package.json");
 if (!existsSync(packageJsonPath)) {
@@ -23,37 +38,31 @@ try {
   process.exit(1);
 }
 
-// Check for required environment variables
-if (!process.env.AGENT_ID || !process.env.API_KEY) {
-  console.warn("\nWarning: AGENT_ID and/or API_KEY environment variables are not set.");
-  console.warn("Tests will use placeholder values and will likely fail to connect to a real agent.");
-  console.warn("Set these environment variables before running the tests:\n");
-  console.warn("  export AGENT_ID=your-agent-id");
-  console.warn("  export API_KEY=your-api-key");
-  console.warn("  export TOOL_NAME=custom-tool-name (optional, defaults to 'brightsy' or 'agent-proxy' depending on the test)\n");
-}
+// Run the tests with environment variables
+const env = {
+  ...process.env,
+  AGENT_ID,
+  API_KEY,
+  TOOL_NAME
+};
 
-// Display tool name information
-const toolName = process.env.TOOL_NAME || "(default)";
-console.warn(`Using tool name: ${toolName}`);
-console.warn("You can customize the tool name with the TOOL_NAME environment variable.\n");
-
-// Run the tests
-console.log("\n=== Running command-line test ===");
+console.log("\n=== Running MCP stdio server tests ===");
 try {
-  execSync("node dist/test-agent-proxy.js", { 
+  execSync("node dist/test.js", { 
     stdio: "inherit",
-    timeout: 30000 // 30 second timeout
+    timeout: 60000, // 60 second timeout
+    env
   });
 } catch (error) {
-  console.error("Command-line test failed:", error);
+  console.error("MCP stdio server tests failed:", error);
 }
 
 console.log("\n=== Running direct MCP protocol test ===");
 try {
   execSync("node dist/test-direct.js", { 
     stdio: "inherit",
-    timeout: 30000 // 30 second timeout
+    timeout: 60000, // 60 second timeout
+    env
   });
 } catch (error) {
   console.error("Direct MCP protocol test failed:", error);

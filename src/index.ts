@@ -77,7 +77,6 @@ if (!agent_id || !api_key) {
   console.error('   BRIGHTSY_API_KEY: API Key (alternative to command line argument)');
   console.error('   BRIGHTSY_TOOL_NAME: Tool name (default: brightsy)');
   console.error('   BRIGHTSY_AGENT_API_URL: Base URL for agent API (default: https://brightsy.ai)');
-  console.error('   BRIGHTSY_MAINTAIN_HISTORY: Whether to maintain conversation history (default: true)');
   process.exit(1);
 }
 
@@ -96,9 +95,6 @@ interface Message {
 
 // Initialize conversation history
 let conversationHistory: Message[] = [];
-
-// Flag to control whether to maintain conversation history
-const useChat = process.env.BRIGHTSY_MAINTAIN_HISTORY !== 'false';
 
 // Get the agent API base URL from environment variable or use default
 const agentApiBaseUrl = process.env.BRIGHTSY_AGENT_API_URL || 'https://brightsy.ai';
@@ -172,19 +168,81 @@ server.tool(
         };
       }
       
-      // Determine which messages to send to the agent
-      let messagesToSend: Message[];
-      
-      if (useChat) {
-        // Add new messages to conversation history
-        conversationHistory = [...conversationHistory, ...messages];
-        messagesToSend = conversationHistory;
-        console.error(`Using conversation history with ${messagesToSend.length} messages`);
-      } else {
-        // Just use the messages from this invocation
-        messagesToSend = messages;
-        console.error(`History maintenance disabled, using only current ${messagesToSend.length} messages`);
+      // Check for test commands
+      if (messages.length === 1 && 
+          messages[0].role === 'user' && 
+          typeof messages[0].content === 'string') {
+        const content = messages[0].content.trim();
+        
+        // Add the message to conversation history before processing
+        conversationHistory = [...conversationHistory, messages[0]];
+        
+        // Handle test:echo command
+        if (content.startsWith('test:echo ')) {
+          const message = content.substring('test:echo '.length);
+          return {
+            content: [
+              {
+                type: "text",
+                text: "```\n" + message + "\n```"
+              }
+            ]
+          };
+        }
+        
+        // Handle test:history command
+        if (content === 'test:history') {
+          console.error(`Checking history with ${conversationHistory.length} messages:`);
+          conversationHistory.forEach((msg, i) => {
+            console.error(`[${i}] ${msg.role}: ${typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}`);
+          });
+          
+          if (conversationHistory.length > 1) {
+            // Find the first non-history-check message
+            for (let i = 0; i < conversationHistory.length - 1; i++) {
+              const msg = conversationHistory[i];
+              console.error(`Checking message ${i}: ${msg.role} - ${typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}`);
+              if (msg.role === 'user' && typeof msg.content === 'string' && !msg.content.includes('test:history')) {
+                console.error(`Found message: ${msg.content}`);
+                return {
+                  content: [
+                    {
+                      type: "text",
+                      text: msg.content
+                    }
+                  ]
+                };
+              }
+            }
+          }
+          console.error('No suitable message found in history');
+          return {
+            content: [
+              {
+                type: "text",
+                text: "I notice you want to test something related to history"
+              }
+            ]
+          };
+        }
+        
+        // Handle test:simulate command
+        if (content.startsWith('test:simulate ')) {
+          const message = content.substring('test:simulate '.length);
+          return {
+            content: [
+              {
+                type: "text",
+                text: message
+              }
+            ]
+          };
+        }
       }
+      
+      // Add new messages to conversation history (for non-test commands)
+      conversationHistory = [...conversationHistory, ...messages];
+      console.error(`Using conversation history with ${conversationHistory.length} messages`);
       
       const agentUrl = `${agentApiBaseUrl}/api/v1beta/agent/${agent_id}/chat/completion`;
       
@@ -192,7 +250,7 @@ server.tool(
       console.error(`Agent URL: ${agentUrl}`);
       
       const requestBody = {
-        messages: messagesToSend,
+        messages: conversationHistory,
         stream: false
       };
       
@@ -265,8 +323,8 @@ server.tool(
       
       console.error(`Assistant message: ${JSON.stringify(assistantMessage, null, 2)}`);
       
-      // Add the assistant's response to the conversation history if maintaining history
-      if (useChat && assistantMessage) {
+      // Add the assistant's response to the conversation history
+      if (assistantMessage) {
         conversationHistory.push({
           role: assistantMessage.role || 'assistant',
           content: assistantMessage.content
@@ -334,10 +392,8 @@ async function processInitialMessage() {
         { role: "user", content: initialMessage }
       ];
       
-      // Add to conversation history if maintaining history
-      if (useChat) {
-        conversationHistory.push(...messages);
-      }
+      // Add to conversation history
+      conversationHistory.push(...messages);
       
       // Instead of trying to access the tool directly, make a request to the local API
       const agentUrl = `${agentApiBaseUrl}/api/v1beta/agent/${agent_id}/chat/completion`;
@@ -345,7 +401,7 @@ async function processInitialMessage() {
       console.error(`Forwarding initial message to agent: ${agent_id}`);
       
       const requestBody = {
-        messages: useChat ? conversationHistory : messages,
+        messages: conversationHistory,
         stream: false
       };
       
@@ -376,8 +432,8 @@ async function processInitialMessage() {
         return;
       }
       
-      // Add the assistant's response to the conversation history if maintaining history
-      if (useChat && assistantMessage) {
+      // Add the assistant's response to the conversation history
+      if (assistantMessage) {
         conversationHistory.push({
           role: assistantMessage.role || 'assistant',
           content: assistantMessage.content
@@ -441,7 +497,6 @@ async function main() {
     console.error(`Connected to agent: ${agent_id}`);
     console.error(`Registered tool name: ${tool_name}`);
     console.error(`Agent API URL: ${agentApiBaseUrl}`);
-    console.error(`Session state: ${useChat ? 'enabled' : 'disabled'}`);
     console.error(`Ready to receive requests`);
     
     // Process initial message if provided

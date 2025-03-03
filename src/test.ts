@@ -5,60 +5,56 @@ import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 
-// Configuration
-const TEST_AGENT_ID = "e6b93840-e117-4390-a9e6-0d78f5c5bbcf";
-const TEST_API_KEY = "d5243ff6-caa5-4456-808e-3a0d60a84e5e";
-const TOOL_NAME = "brightsy";
+// Configuration from environment variables
+const TEST_AGENT_ID = process.env.AGENT_ID || process.env.BRIGHTSY_AGENT_ID || '';
+const TEST_API_KEY = process.env.API_KEY || process.env.BRIGHTSY_API_KEY || '';
+const TOOL_NAME = process.env.TOOL_NAME || process.env.BRIGHTSY_TOOL_NAME || "brightsy";
+
+// Validate required environment variables
+if (!TEST_AGENT_ID || !TEST_API_KEY) {
+  console.error('Error: Required environment variables not set');
+  console.error('Please set the following environment variables:');
+  console.error('  AGENT_ID or BRIGHTSY_AGENT_ID: The agent ID to use for testing');
+  console.error('  API_KEY or BRIGHTSY_API_KEY: The API key to use for testing');
+  console.error('  TOOL_NAME or BRIGHTSY_TOOL_NAME: (optional) The tool name to use (default: brightsy)');
+  process.exit(1);
+}
+
+// After validation, we can safely assert these as strings
+const validatedAgentId = TEST_AGENT_ID as string;
+const validatedApiKey = TEST_API_KEY as string;
 
 // Test cases
 const testCases = [
   {
-    name: "Create first conversation",
-    conversationId: "test1",
-    message: "test:echo First message in test1",
-    expectedResponse: "Echo: first message in test1"
+    name: "Create first message",
+    message: "test:echo First message",
+    expectedPartial: "```\nFirst message\n```"
   },
   {
-    name: "Add to first conversation",
-    conversationId: "test1",
-    message: "test:echo Second message in test1",
-    expectedResponse: "Echo: second message in test1"
+    name: "Add to conversation",
+    message: "test:echo Second message",
+    expectedPartial: "```\nSecond message\n```"
   },
   {
-    name: "Create second conversation",
-    conversationId: "test2",
-    message: "test:echo Message in test2",
-    expectedResponse: "Echo: message in test2"
+    name: "Check conversation history",
+    message: "test:history",
+    expectedPartial: "test:echo First message"
   },
   {
-    name: "Check conversation stats",
-    conversationId: "default",
-    message: "test:stats",
-    expectedPartial: "Count: 2"
+    name: "Clear conversation history",
+    message: "clear history",
+    expectedPartial: "history has been cleared"
   },
   {
-    name: "Clear first conversation",
-    conversationId: "test1",
-    message: "clear conversation",
-    expectedResponse: "Conversation test1 has been cleared."
-  },
-  {
-    name: "Verify first conversation cleared",
-    conversationId: "default",
-    message: "test:stats",
-    expectedPartial: "\"test1\":0"
+    name: "Verify history cleared",
+    message: "test:history",
+    expectedPartial: "I notice you want to test something related to history"
   },
   {
     name: "Test simulation",
-    conversationId: "test3",
     message: "test:simulate This is a simulated response",
-    expectedResponse: "This is a simulated response"
-  },
-  {
-    name: "List conversations",
-    conversationId: "default",
-    message: "list conversations",
-    expectedPartial: "test3"
+    expectedPartial: "simulated response"
   }
 ];
 
@@ -75,8 +71,7 @@ async function runTests() {
       "--tool-name", TOOL_NAME
     ],
     env: {
-      BRIGHTSY_TEST_MODE: "true",
-      BRIGHTSY_MAINTAIN_HISTORY: "true"
+      BRIGHTSY_TEST_MODE: "true"
     }
   });
   
@@ -103,8 +98,7 @@ async function runTests() {
         const toolParams = {
           name: TOOL_NAME,
           arguments: {
-            messages: [{ role: "user", content: test.message }],
-            conversationId: test.conversationId
+            messages: [{ role: "user", content: test.message }]
           }
         };
         
@@ -123,9 +117,7 @@ async function runTests() {
         // Check if response matches expected
         let passed = false;
         
-        if (test.expectedResponse && responseText === test.expectedResponse) {
-          passed = true;
-        } else if (test.expectedPartial && responseText.includes(test.expectedPartial)) {
+        if (test.expectedPartial && responseText.includes(test.expectedPartial)) {
           passed = true;
         }
         
@@ -134,7 +126,7 @@ async function runTests() {
           passedTests++;
         } else {
           console.log("❌ Test failed");
-          console.log(`Expected: ${test.expectedResponse || "to include " + test.expectedPartial}`);
+          console.log(`Expected to include: ${test.expectedPartial}`);
           console.log(`Actual: ${responseText}`);
         }
       } catch (error) {

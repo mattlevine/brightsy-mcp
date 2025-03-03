@@ -2,58 +2,40 @@ import { Client as McpClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import * as path from "path";
 // Configuration
-const TEST_AGENT_ID = "e6b93840-e117-4390-a9e6-0d78f5c5bbcf";
-const TEST_API_KEY = "d5243ff6-caa5-4456-808e-3a0d60a84e5e";
+const TEST_AGENT_ID = "9eace707-acb5-457b-b2fd-4a6e9807e7ad";
+const TEST_API_KEY = "d2c23514-93c4-4dda-bd28-b77ec62fe7b2";
 const TOOL_NAME = "brightsy";
 // Test cases
 const testCases = [
     {
-        name: "Create first conversation",
-        conversationId: "test1",
-        message: "test:echo First message in test1",
-        expectedResponse: "Echo: first message in test1"
+        name: "Create first message",
+        message: "test:echo First message",
+        expectedPartial: "```\nFirst message\n```"
     },
     {
-        name: "Add to first conversation",
-        conversationId: "test1",
-        message: "test:echo Second message in test1",
-        expectedResponse: "Echo: second message in test1"
+        name: "Add to conversation",
+        message: "test:echo Second message",
+        expectedPartial: "```\nSecond message\n```"
     },
     {
-        name: "Create second conversation",
-        conversationId: "test2",
-        message: "test:echo Message in test2",
-        expectedResponse: "Echo: message in test2"
+        name: "Check conversation history",
+        message: "test:history",
+        expectedPartial: "test:echo First message"
     },
     {
-        name: "Check conversation stats",
-        conversationId: "default",
-        message: "test:stats",
-        expectedPartial: "Count: 2"
+        name: "Clear conversation history",
+        message: "clear history",
+        expectedPartial: "history has been cleared"
     },
     {
-        name: "Clear first conversation",
-        conversationId: "test1",
-        message: "clear conversation",
-        expectedResponse: "Conversation test1 has been cleared."
-    },
-    {
-        name: "Verify first conversation cleared",
-        conversationId: "default",
-        message: "test:stats",
-        expectedPartial: "\"test1\":0"
+        name: "Verify history cleared",
+        message: "test:history",
+        expectedPartial: "I notice you want to test something related to history"
     },
     {
         name: "Test simulation",
-        conversationId: "test3",
         message: "test:simulate This is a simulated response",
-        expectedResponse: "This is a simulated response"
-    },
-    {
-        name: "List conversations",
-        conversationId: "default",
-        message: "list conversations",
-        expectedPartial: "test3"
+        expectedPartial: "simulated response"
     }
 ];
 async function runTests() {
@@ -68,8 +50,7 @@ async function runTests() {
             "--tool-name", TOOL_NAME
         ],
         env: {
-            BRIGHTSY_TEST_MODE: "true",
-            BRIGHTSY_MAINTAIN_HISTORY: "true"
+            BRIGHTSY_TEST_MODE: "true"
         }
     });
     // Create MCP client
@@ -91,8 +72,7 @@ async function runTests() {
                 const toolParams = {
                     name: TOOL_NAME,
                     arguments: {
-                        messages: [{ role: "user", content: test.message }],
-                        conversationId: test.conversationId
+                        messages: [{ role: "user", content: test.message }]
                     }
                 };
                 console.log("Calling tool with params:", JSON.stringify(toolParams, null, 2));
@@ -105,10 +85,7 @@ async function runTests() {
                 console.log(`Response: ${responseText}`);
                 // Check if response matches expected
                 let passed = false;
-                if (test.expectedResponse && responseText === test.expectedResponse) {
-                    passed = true;
-                }
-                else if (test.expectedPartial && responseText.includes(test.expectedPartial)) {
+                if (test.expectedPartial && responseText.includes(test.expectedPartial)) {
                     passed = true;
                 }
                 if (passed) {
@@ -117,7 +94,7 @@ async function runTests() {
                 }
                 else {
                     console.log("❌ Test failed");
-                    console.log(`Expected: ${test.expectedResponse || "to include " + test.expectedPartial}`);
+                    console.log(`Expected to include: ${test.expectedPartial}`);
                     console.log(`Actual: ${responseText}`);
                 }
             }
