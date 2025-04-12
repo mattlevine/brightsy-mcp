@@ -4,10 +4,19 @@
 import { execSync } from "child_process";
 import { existsSync } from "fs";
 import { join } from "path";
-// Configuration
-const AGENT_ID = "9eace707-acb5-457b-b2fd-4a6e9807e7ad";
-const API_KEY = "d2c23514-93c4-4dda-bd28-b77ec62fe7b2";
-const TOOL_NAME = "brightsy";
+// Configuration from environment variables
+const AGENT_ID = process.env.AGENT_ID || process.env.BRIGHTSY_AGENT_ID || '';
+const API_KEY = process.env.API_KEY || process.env.BRIGHTSY_API_KEY || '';
+const TOOL_NAME = process.env.TOOL_NAME || process.env.BRIGHTSY_TOOL_NAME || "brightsy";
+// Validate required environment variables
+if (!AGENT_ID || !API_KEY) {
+    console.error('Error: Required environment variables not set');
+    console.error('Please set the following environment variables:');
+    console.error('  AGENT_ID or BRIGHTSY_AGENT_ID: The agent ID to use for testing');
+    console.error('  API_KEY or BRIGHTSY_API_KEY: The API key to use for testing');
+    console.error('  TOOL_NAME or BRIGHTSY_TOOL_NAME: (optional) The tool name to use (default: brightsy)');
+    process.exit(1);
+}
 // Ensure we're in the right directory
 const packageJsonPath = join(process.cwd(), "package.json");
 if (!existsSync(packageJsonPath)) {

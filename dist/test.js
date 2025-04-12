@@ -1,10 +1,22 @@
 import { Client as McpClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import * as path from "path";
-// Configuration
-const TEST_AGENT_ID = "9eace707-acb5-457b-b2fd-4a6e9807e7ad";
-const TEST_API_KEY = "d2c23514-93c4-4dda-bd28-b77ec62fe7b2";
-const TOOL_NAME = "brightsy";
+// Configuration from environment variables
+const TEST_AGENT_ID = process.env.AGENT_ID || process.env.BRIGHTSY_AGENT_ID || '';
+const TEST_API_KEY = process.env.API_KEY || process.env.BRIGHTSY_API_KEY || '';
+const TOOL_NAME = process.env.TOOL_NAME || process.env.BRIGHTSY_TOOL_NAME || "brightsy";
+// Validate required environment variables
+if (!TEST_AGENT_ID || !TEST_API_KEY) {
+    console.error('Error: Required environment variables not set');
+    console.error('Please set the following environment variables:');
+    console.error('  AGENT_ID or BRIGHTSY_AGENT_ID: The agent ID to use for testing');
+    console.error('  API_KEY or BRIGHTSY_API_KEY: The API key to use for testing');
+    console.error('  TOOL_NAME or BRIGHTSY_TOOL_NAME: (optional) The tool name to use (default: brightsy)');
+    process.exit(1);
+}
+// After validation, we can safely assert these as strings
+const validatedAgentId = TEST_AGENT_ID;
+const validatedApiKey = TEST_API_KEY;
 // Test cases
 const testCases = [
     {
