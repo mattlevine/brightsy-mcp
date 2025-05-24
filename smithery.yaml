@@ -1,0 +1,43 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: stdio
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => {
+      const args = ['dist/index.js', '--agent-id', config.agentId, '--api-key', config.apiKey];
+      if (config.toolName) {
+        args.push('--tool-name', config.toolName);
+      }
+      if (config.initialMessage) {
+        args.push('--message', config.initialMessage);
+      }
+      return { command: 'node', args };
+    }
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - agentId
+      - apiKey
+    properties:
+      agentId:
+        type: string
+        description: The Brightsy agent ID.
+      apiKey:
+        type: string
+        description: The Brightsy API key.
+      toolName:
+        type: string
+        default: brightsy
+        description: Custom tool name to register.
+      initialMessage:
+        type: string
+        default: ""
+        description: Optional initial message to send to the agent.
+  exampleConfig:
+    agentId: example-agent-id
+    apiKey: example-api-key
+    toolName: brightsy
+    initialMessage: Hello, agent!
