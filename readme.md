@@ -1,9 +1,20 @@
 # Brightsy MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@mattlevine/brightsy-mcp)](https://smithery.ai/server/@mattlevine/brightsy-mcp)
+
 This is a Model Context Protocol (MCP) server that connects to an Brightsy AI agent.
 
 ## Installation
 
+### Installing via Smithery
+
+To install Brightsy MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@mattlevine/brightsy-mcp):
+
+```bash
+npx -y @smithery/cli install @mattlevine/brightsy-mcp --client claude
+```
+
+### Manual Installation
 ```bash
 npm install
 ```
